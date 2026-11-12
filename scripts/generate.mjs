@@ -1,6 +1,6 @@
 // Usage : node --env-file=.env.local scripts/generate.mjs VILLE tag=valeur NOMBRE PAYS
 // Exemple : node --env-file=.env.local scripts/generate.mjs Cotonou amenity=restaurant 3 BJ
-// Options (variables) : ONLY_EMAIL=1 (ne garder que les commerces avec e-mail), PEXELS_API_KEY (photos gratuites)
+// Options (variables) : ONLY_EMAIL=1 (ne garder que les commerces avec e-mail), UNSPLASH_ACCESS_KEY ou PEXELS_API_KEY (photos gratuites)
 import { createClient } from "@supabase/supabase-js";
 import { appendFileSync } from "node:fs";
 const [city, tag, n = "5", countryArg] = process.argv.slice(2);
@@ -70,16 +70,29 @@ async function gemini(prompt) {
   }
   return null;
 }
-async function pexels(q) {
-  if (!process.env.PEXELS_API_KEY || !q) return null;
+async function photo(q) {
+  if (!q) return null;
   try {
-    const r = await fetch(`https://api.pexels.com/v1/search?query=${encodeURIComponent(q)}&per_page=5&orientation=landscape`, { headers: { Authorization: process.env.PEXELS_API_KEY } });
-    const j = await r.json();
-    const list = j.photos || [];
-    if (!list.length) return null;
-    const p = list[Math.floor(Math.random() * list.length)];
-    return { hero: p.src.large2x || p.src.large, card: p.src.medium || p.src.large };
-  } catch { return null; }
+    if (process.env.UNSPLASH_ACCESS_KEY) {
+      const auth = { Authorization: `Client-ID ${process.env.UNSPLASH_ACCESS_KEY}` };
+      const r = await fetch(`https://api.unsplash.com/search/photos?query=${encodeURIComponent(q)}&per_page=5&orientation=landscape`, { headers: auth });
+      const j = await r.json();
+      const list = j.results || [];
+      if (!list.length) return null;
+      const p = list[Math.floor(Math.random() * list.length)];
+      try { if (p.links && p.links.download_location) fetch(p.links.download_location, { headers: auth }).catch(() => {}); } catch {}
+      return { hero: p.urls.regular, card: p.urls.small, credit: "Unsplash" };
+    }
+    if (process.env.PEXELS_API_KEY) {
+      const r = await fetch(`https://api.pexels.com/v1/search?query=${encodeURIComponent(q)}&per_page=5&orientation=landscape`, { headers: { Authorization: process.env.PEXELS_API_KEY } });
+      const j = await r.json();
+      const list = j.photos || [];
+      if (!list.length) return null;
+      const p = list[Math.floor(Math.random() * list.length)];
+      return { hero: p.src.large2x || p.src.large, card: p.src.medium || p.src.large, credit: "Pexels" };
+    }
+  } catch {}
+  return null;
 }
 const MSG = {
   fr: (name, link) => `Bonjour, j'ai préparé gratuitement un aperçu de site web pour ${name} : ${link}\nLe tarif et les détails sont sur la page. Répondez STOP si vous ne voulez pas être contacté.`,
@@ -106,17 +119,17 @@ for (const e of todo) {
   const gen = await gemini(prompt);
   if (!gen && AUTO) { console.log("→ Gemini indisponible, je saute", name); continue; }
   const content = gen || { tagline: name, about: "", servicesTitle: "", services: [], highlights: [], faq: [] };
-  let credit = false;
+  let credit = "";
   let heroUrl = "";
-  const h = await pexels(content.heroQuery);
-  if (h) { heroUrl = h.hero; credit = true; }
+  const h = await photo(content.heroQuery);
+  if (h) { heroUrl = h.hero; credit = h.credit; }
   const services = [];
   for (const sv of (content.services || []).slice(0, 6)) {
-    const p = await pexels(sv.photoQuery);
-    if (p) credit = true;
+    const p = await photo(sv.photoQuery);
+    if (p) credit = p.credit;
     services.push({ name: sv.name, desc: sv.desc || "", price: "", img: p ? p.card : "" });
   }
-  const config = { tagline: content.tagline, about: content.about, servicesTitle: content.servicesTitle, services, highlights: content.highlights || [], faq: content.faq || [], hero: heroUrl, photoCredit: credit, theme, lang, currency, country, address, phone, hours: t.opening_hours || "", photos: [], osm_id: `${e.type}/${e.id}` };
+  const config = { tagline: content.tagline, about: content.about, servicesTitle: content.servicesTitle, services, highlights: content.highlights || [], faq: content.faq || [], hero: heroUrl, photoCredit: credit || false, theme, lang, currency, country, address, phone, hours: t.opening_hours || "", photos: [], osm_id: `${e.type}/${e.id}` };
   const slug = name.toLowerCase().normalize("NFD").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") + "-" + Math.random().toString(36).slice(2, 5);
   const { data, error } = await db.from("shops").insert({ slug, name, type: tag, config, owner_email: email }).select().single();
   if (error) { console.log("Erreur", name, error.message); continue; }

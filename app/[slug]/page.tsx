@@ -202,7 +202,7 @@ export default async function Shop({ params, searchParams }: { params: Promise<{
             </div>
           </div>
           <div style={{ marginTop: 10, opacity: 0.7 }}>{t.built}</div>
-          {c.photoCredit ? <div className="sx-credit">Photos : <a href="https://www.pexels.com" style={{ marginRight: 0 }}>Pexels</a></div> : null}
+          {c.photoCredit ? <div className="sx-credit">Photos : <a href={c.photoCredit === "Unsplash" ? "https://unsplash.com/?utm_source=siteexpress&utm_medium=referral" : "https://www.pexels.com"} style={{ marginRight: 0 }}>{typeof c.photoCredit === "string" ? c.photoCredit : "Pexels"}</a></div> : null}
         </div>
       </footer>
 
