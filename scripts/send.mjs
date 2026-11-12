@@ -13,13 +13,19 @@ const TXT = {
 };
 const { data: shops } = await db.from("shops").select("*").eq("status", "preview").is("contacted_at", null).not("owner_email", "is", null).limit(n);
 console.log((shops || []).length + " commerces à contacter");
+let sent = 0;
 for (const s of shops || []) {
   const lang = TXT[s.config?.lang] ? s.config.lang : "fr";
   const link = `${process.env.SITE_URL}/${s.slug}`;
   try {
     await t.sendMail({ from: `Rufin – SiteExpress <${process.env.GMAIL_USER}>`, to: s.owner_email, subject: TXT[lang].sub(s.name), text: TXT[lang].body(s.name, link) });
     await db.from("shops").update({ contacted_at: new Date().toISOString() }).eq("id", s.id);
+    sent++;
     console.log("Envoyé à", s.name, s.owner_email);
   } catch (e) { console.log("Échec", s.name, e.message); }
   await new Promise((r) => setTimeout(r, 45000 + Math.random() * 45000));
 }
+
+try {
+  await t.sendMail({ from: `SiteExpress <${process.env.GMAIL_USER}>`, to: process.env.GMAIL_USER, subject: `Rapport du jour : ${sent} e-mail(s) envoyé(s)`, text: `${sent} aperçu(s) envoyé(s) aujourd'hui sur ${(shops || []).length} prévus.\nTu seras prévenu par e-mail dès qu'un client paie : le site lui est alors livré automatiquement.` });
+} catch (e) { console.log("rapport", e.message); }

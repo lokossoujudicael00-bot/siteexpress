@@ -1,0 +1,12 @@
+[
+  { "city": "Paris", "tag": "shop=hairdresser", "country": "FR", "count": 10 },
+  { "city": "Lyon", "tag": "amenity=restaurant", "country": "FR", "count": 10 },
+  { "city": "Marseille", "tag": "shop=car_repair", "country": "FR", "count": 10 },
+  { "city": "Bordeaux", "tag": "amenity=dentist", "country": "FR", "count": 10 },
+  { "city": "Bruxelles", "tag": "amenity=restaurant", "country": "BE", "count": 10 },
+  { "city": "Madrid", "tag": "shop=hairdresser", "country": "ES", "count": 10 },
+  { "city": "Lisboa", "tag": "amenity=restaurant", "country": "PT", "count": 10 },
+  { "city": "London", "tag": "shop=car_repair", "country": "GB", "count": 10 },
+  { "city": "Abidjan", "tag": "amenity=restaurant", "country": "CI", "count": 10 },
+  { "city": "Dakar", "tag": "shop=hairdresser", "country": "SN", "count": 10 }
+]

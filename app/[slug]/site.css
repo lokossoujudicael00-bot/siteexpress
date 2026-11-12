@@ -72,3 +72,35 @@
 @supports (animation-timeline:view()){.sx-reveal{animation:sx-up linear both;animation-timeline:view();animation-range:entry 5% cover 28%}}
 @media (max-width:700px){.sx-links a.l{display:none}.sx-emoji{opacity:.25;right:-10px}.sx-hero{padding:56px 0 68px}.sx-sec{padding:46px 0}}
 @media (prefers-reduced-motion:reduce){.sx *{animation:none!important;transition:none!important}}
+
+/* ---------- Variantes de style (chaque commerce a son look) ---------- */
+.sx[data-f="serif"] h1,.sx[data-f="serif"] h2,.sx[data-f="serif"] h3,.sx[data-f="serif"] .sx-brand{font-family:Georgia,"Times New Roman",serif}
+.sx[data-r="sharp"] .sx-card,.sx[data-r="sharp"] .sx-btn,.sx[data-r="sharp"] .sx-info .box,.sx[data-r="sharp"] .sx-price,.sx[data-r="sharp"] .sx-faq details,.sx[data-r="sharp"] .sx-form input,.sx[data-r="sharp"] .sx-form textarea{border-radius:6px}
+.sx[data-v="b"] .sx-hero{background:linear-gradient(115deg,var(--a) 0 58%,var(--a2) 58% 100%)}
+.sx[data-v="b"] .sx-hero::after{content:"";position:absolute;inset:auto 0 0 0;height:60px;background:#fff;clip-path:polygon(0 100%,100% 0,100% 100%)}
+.sx[data-v="c"] .sx-hero{text-align:center;background:radial-gradient(circle at 18% 22%,var(--a2),transparent 52%),radial-gradient(circle at 85% 80%,hsl(calc(var(--h) + 60) 80% 55% / .6),transparent 45%),linear-gradient(160deg,var(--a),hsl(var(--h) 60% 20%))}
+.sx[data-v="c"] .sx-hero h1,.sx[data-v="c"] .sx-hero p{margin-left:auto;margin-right:auto}
+.sx[data-v="c"] .sx-hero .cta{justify-content:center}
+.sx[data-v="c"] .sx-emoji{display:none}
+.sx[data-v] .sx-hero.photo{background-size:cover;background-position:center;min-height:440px;display:flex;align-items:center}
+.sx[data-v] .sx-hero.photo::before{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgba(0,0,0,.4),rgba(0,0,0,.65))}
+.sx-hero.photo .sx-emoji,.sx-hero.photo .sx-blob{display:none}
+.sx-hero.photo .sx-wrap{width:100%}
+.sx-card .pic{display:block;width:calc(100% + 48px);height:170px;object-fit:cover;margin:-24px -24px 16px;border-radius:18px 18px 0 0}
+.sx[data-r="sharp"] .sx-card .pic{border-radius:6px 6px 0 0}
+.sx-card .row{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-top:14px}
+.sx-card .row b{margin:0}
+.sx-why{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:18px;margin-top:26px}
+.sx-why div{border-left:4px solid var(--a2);padding:6px 0 6px 16px}
+.sx-why h3{font-size:18px;margin-bottom:4px}
+.sx-why p{margin:0;color:var(--mute);font-size:15px}
+.sx-wa{position:fixed;right:16px;bottom:78px;z-index:40;width:56px;height:56px;border-radius:50%;background:#25d366;color:#fff!important;display:flex;align-items:center;justify-content:center;font-size:28px;box-shadow:0 8px 20px rgba(0,0,0,.3)}
+.sx-credit{opacity:.6;font-size:12px;margin-top:6px}
+.sx-pay{max-width:640px;margin:0 auto;padding:40px 20px 90px}
+.sx-pay .panel{background:#fff;border:1px solid #e8ebf2;border-radius:20px;padding:24px;margin-top:20px;box-shadow:0 4px 18px rgba(20,30,60,.06)}
+.sx-pay h2{font-size:22px;margin-bottom:8px}
+.sx-pay .kv{display:flex;justify-content:space-between;gap:12px;padding:8px 0;border-bottom:1px dashed #e3e6ee}
+.sx-pay .kv b{word-break:break-all;text-align:right}
+.sx-pay .big{font-size:34px;font-weight:800;color:var(--a)}
+.sx-pay .ok{background:#e8f8ee;color:#176b3a;padding:14px 18px;border-radius:12px;font-weight:600}
+.sx-pay .warn{background:#fff6e0;color:#7a5200;padding:14px 18px;border-radius:12px}

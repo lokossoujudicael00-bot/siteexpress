@@ -1,11 +1,13 @@
 // Usage : node --env-file=.env.local scripts/generate.mjs VILLE tag=valeur NOMBRE PAYS
 // Exemple : node --env-file=.env.local scripts/generate.mjs Cotonou amenity=restaurant 3 BJ
+// Options (variables) : ONLY_EMAIL=1 (ne garder que les commerces avec e-mail), PEXELS_API_KEY (photos gratuites)
 import { createClient } from "@supabase/supabase-js";
 import { appendFileSync } from "node:fs";
 const [city, tag, n = "5", countryArg] = process.argv.slice(2);
 if (!city || !tag) { console.log("Exemple : node --env-file=.env.local scripts/generate.mjs Cotonou amenity=restaurant 3 BJ"); process.exit(1); }
 const country = (countryArg || "FR").toUpperCase();
-if (!countryArg) console.log("Astuce : ajoute le code du pays à la fin (BJ, TG, CI, SN, FR, US, ES...). Par défaut : FR.");
+const ONLY_EMAIL = process.env.ONLY_EMAIL === "1";
+const AUTO = process.env.AUTO === "1";
 const COUNTRIES = {
   BJ: ["fr", "XOF"], TG: ["fr", "XOF"], CI: ["fr", "XOF"], SN: ["fr", "XOF"], ML: ["fr", "XOF"], BF: ["fr", "XOF"], NE: ["fr", "XOF"],
   CM: ["fr", "XAF"], GA: ["fr", "XAF"], CG: ["fr", "XAF"], FR: ["fr", "EUR"], BE: ["fr", "EUR"], LU: ["fr", "EUR"], CH: ["fr", "EUR"],
@@ -30,7 +32,10 @@ const theme = themeFor(tag);
 const [key, val] = tag.split("=");
 const db = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
 const sleep = (ms) => new Promise((ok) => setTimeout(ok, ms));
-const query = `[out:json][timeout:60];area[name="${city}"]->.a;nwr(area.a)["${key}"="${val}"][name][!website][!"contact:website"];out center tags 100;`;
+const base = `nwr(area.a)["${key}"="${val}"][name][!website][!"contact:website"]`;
+const query = ONLY_EMAIL
+  ? `[out:json][timeout:90];area[name="${city}"]->.a;(${base}[email];${base}["contact:email"];);out center tags 400;`
+  : `[out:json][timeout:60];area[name="${city}"]->.a;${base};out center tags 300;`;
 async function overpass() {
   const mirrors = ["https://overpass-api.de/api/interpreter", "https://overpass.kumi.systems/api/interpreter", "https://overpass.private.coffee/api/interpreter"];
   for (let round = 0; round < 2; round++) {
@@ -46,22 +51,35 @@ async function overpass() {
   }
   return null;
 }
+const MODEL = (process.env.GEMINI_MODEL || "").replace(/^GEMINI_MODEL=/, "").trim() || "gemini-flash-latest";
 async function gemini(prompt) {
-  const models = [process.env.GEMINI_MODEL || "gemini-flash-latest", "gemini-flash-latest"];
-  for (const m of [...new Set(models)]) {
-    try {
-      const g = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${m}:generateContent`, {
-        method: "POST", headers: { "Content-Type": "application/json", "x-goog-api-key": process.env.GEMINI_API_KEY },
-        body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }], generationConfig: { responseMimeType: "application/json" } }),
-      });
-      const j = await g.json().catch(() => ({}));
-      const t = j?.candidates?.[0]?.content?.parts?.[0]?.text;
-      if (t) { try { return JSON.parse(t.replace(/```json|```/g, "").trim()); } catch {} }
-      console.log("Gemini (" + m + ") :", g.status, String(j?.error?.message || "réponse vide").slice(0, 200));
-    } catch (e) { console.log("Gemini échec réseau :", e.message); }
+  for (let attempt = 0; attempt < 3; attempt++) {
+    for (const m of [...new Set([MODEL, "gemini-flash-latest"])]) {
+      try {
+        const g = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${m}:generateContent`, {
+          method: "POST", headers: { "Content-Type": "application/json", "x-goog-api-key": process.env.GEMINI_API_KEY },
+          body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }], generationConfig: { responseMimeType: "application/json" } }),
+        });
+        const j = await g.json().catch(() => ({}));
+        const t = j?.candidates?.[0]?.content?.parts?.[0]?.text;
+        if (t) { try { return JSON.parse(t.replace(/```json|```/g, "").trim()); } catch {} }
+        console.log("Gemini (" + m + ") :", g.status, String(j?.error?.message || "réponse vide").slice(0, 160));
+      } catch (e) { console.log("Gemini échec réseau :", e.message); }
+    }
     await sleep(8000);
   }
   return null;
+}
+async function pexels(q) {
+  if (!process.env.PEXELS_API_KEY || !q) return null;
+  try {
+    const r = await fetch(`https://api.pexels.com/v1/search?query=${encodeURIComponent(q)}&per_page=5&orientation=landscape`, { headers: { Authorization: process.env.PEXELS_API_KEY } });
+    const j = await r.json();
+    const list = j.photos || [];
+    if (!list.length) return null;
+    const p = list[Math.floor(Math.random() * list.length)];
+    return { hero: p.src.large2x || p.src.large, card: p.src.medium || p.src.large };
+  } catch { return null; }
 }
 const MSG = {
   fr: (name, link) => `Bonjour, j'ai préparé gratuitement un aperçu de site web pour ${name} : ${link}\nLe tarif et les détails sont sur la page. Répondez STOP si vous ne voulez pas être contacté.`,
@@ -71,30 +89,47 @@ const MSG = {
 };
 const all = await overpass();
 if (!all) { console.log("Les serveurs OpenStreetMap sont occupés. Réessaie dans 5 minutes."); process.exit(1); }
-const els = all.slice(0, Number(n));
-console.log(all.length + " commerces sans site trouvés, je traite " + els.length + " (pays " + country + ", langue " + lang + ", thème " + theme + ")");
-for (const e of els) {
+const { data: existing } = await db.from("shops").select("config").eq("type", tag);
+const known = new Set((existing || []).map((x) => x.config?.osm_id).filter(Boolean));
+const score = (e) => ((e.tags.email || e.tags["contact:email"]) ? 2 : 0) + ((e.tags.phone || e.tags["contact:phone"] || e.tags["contact:mobile"]) ? 1 : 0);
+const todo = all.filter((e) => !known.has(`${e.type}/${e.id}`)).sort((a, b) => score(b) - score(a));
+console.log(all.length + " commerces sans site trouvés, " + todo.length + " nouveaux (pays " + country + ", langue " + lang + ", thème " + theme + ", modèle " + MODEL + ")");
+let created = 0;
+for (const e of todo) {
+  if (created >= Number(n)) break;
   const t = e.tags;
   const name = t.name;
   const address = [t["addr:housenumber"], t["addr:street"], t["addr:city"] || city].filter(Boolean).join(" ");
   const phone = t.phone || t["contact:phone"] || t["contact:mobile"] || "";
   const email = t.email || t["contact:email"] || null;
-  const prompt = `Tu écris le contenu du site web d'un commerce. Nom : ${name}. Type : ${tag}. Ville : ${city}. Langue de rédaction : ${LANGNAME[lang]}. Réponds UNIQUEMENT en JSON, sans texte autour : {"tagline":"phrase d'accroche courte et chaleureuse","about":"paragraphe de 2 à 3 phrases présentant le commerce, sans inventer de faits précis (pas d'année, pas de récompense, pas de chiffres)","servicesTitle":"titre de la liste","services":[{"name":"...","desc":"une courte phrase"}],"faq":[{"q":"...","a":"..."}]} avec exactement 6 services ou produits typiques de ce métier et 3 questions fréquentes utiles. N'invente AUCUN prix, AUCUN horaire, AUCUNE adresse.`;
-  let gen = await gemini(prompt);
-  if (!gen) { console.log("→ Contenu simple utilisé pour", name); gen = { tagline: name, about: "", servicesTitle: "", services: [], faq: [] }; }
-  const config = { ...gen, theme, lang, currency, country, address, phone, hours: t.opening_hours || "", photos: [] };
+  const prompt = `Tu écris le contenu du site web d'un commerce. Nom : ${name}. Type : ${tag}. Ville : ${city}, pays : ${country}. Langue de rédaction : ${LANGNAME[lang]}. Réponds UNIQUEMENT en JSON, sans texte autour : {"tagline":"phrase d'accroche courte et chaleureuse","about":"paragraphe de 2 à 3 phrases présentant le commerce, sans inventer de faits précis (pas d'année, pas de récompense, pas de chiffres)","servicesTitle":"titre de la liste","services":[{"name":"...","desc":"une courte phrase","photoQuery":"2 à 3 mots en anglais pour chercher une photo"}],"highlights":[{"title":"...","text":"une phrase"}],"faq":[{"q":"...","a":"..."}],"heroQuery":"2 à 4 mots en anglais pour une grande photo d'ambiance"} avec exactement 6 services ou produits typiques de ce métier dans ce pays, 3 atouts (highlights) généraux sans chiffres inventés, et 3 questions fréquentes utiles. N'invente AUCUN prix, AUCUN horaire, AUCUNE adresse, AUCUN avis client.`;
+  const gen = await gemini(prompt);
+  if (!gen && AUTO) { console.log("→ Gemini indisponible, je saute", name); continue; }
+  const content = gen || { tagline: name, about: "", servicesTitle: "", services: [], highlights: [], faq: [] };
+  let credit = false;
+  let heroUrl = "";
+  const h = await pexels(content.heroQuery);
+  if (h) { heroUrl = h.hero; credit = true; }
+  const services = [];
+  for (const sv of (content.services || []).slice(0, 6)) {
+    const p = await pexels(sv.photoQuery);
+    if (p) credit = true;
+    services.push({ name: sv.name, desc: sv.desc || "", price: "", img: p ? p.card : "" });
+  }
+  const config = { tagline: content.tagline, about: content.about, servicesTitle: content.servicesTitle, services, highlights: content.highlights || [], faq: content.faq || [], hero: heroUrl, photoCredit: credit, theme, lang, currency, country, address, phone, hours: t.opening_hours || "", photos: [], osm_id: `${e.type}/${e.id}` };
   const slug = name.toLowerCase().normalize("NFD").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") + "-" + Math.random().toString(36).slice(2, 5);
   const { data, error } = await db.from("shops").insert({ slug, name, type: tag, config, owner_email: email }).select().single();
   if (error) { console.log("Erreur", name, error.message); continue; }
+  created++;
   const link = `${process.env.SITE_URL}/${slug}`;
   let wa = "";
   const digits = phone.replace(/[^\d+]/g, "");
   if (digits.startsWith("+") || digits.startsWith("00")) {
-    const num = digits.replace(/^\+/, "").replace(/^00/, "");
-    wa = `https://wa.me/${num}?text=${encodeURIComponent(MSG[lang](name, link))}`;
+    wa = `https://wa.me/${digits.replace(/^\+/, "").replace(/^00/, "")}?text=${encodeURIComponent(MSG[lang](name, link))}`;
   }
-  appendFileSync("leads.csv", `${name};${email || ""};${link};${process.env.SITE_URL}/edit/${data.edit_token};${wa}\n`);
-  console.log("✔", name, "| e-mail:", email || "aucun", "| WhatsApp:", wa ? "oui" : "non");
+  try { appendFileSync("leads.csv", `${name};${email || ""};${link};${process.env.SITE_URL}/edit/${data.edit_token};${wa}\n`); } catch {}
+  console.log("✔", name, "| e-mail:", email || "aucun", "| WhatsApp:", wa ? "oui" : "non", "| photos:", heroUrl ? "oui" : "non");
   console.log("   Aperçu :", link);
-  await sleep(6000);
+  await sleep(4000);
 }
+console.log(created + " site(s) créé(s).");

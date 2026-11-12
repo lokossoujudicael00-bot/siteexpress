@@ -136,3 +136,32 @@ export function legalText(lang: string, doc: string, s: any) {
         "Hosting: Vercel Inc., 440 N Barranca Ave #4133, Covina, CA 91723, USA. Database: Supabase.",
       ] };
 }
+
+const EXTRA: Record<string, any> = {
+  fr: { order: "Commander", pick: "Choisir", orderTitle: "Commander", orderItem: "Produit ou plat choisi", qty: "Quantité", orderSend: "Envoyer ma commande", orderOk: "Merci ! Votre commande a bien été envoyée. Nous vous contactons très vite.", pending: "Paiement reçu en cours de vérification. Votre site sera livré très vite.", why: "Pourquoi nous choisir", reviews: "Voir les avis sur Google", seeMenu: "Voir nos services" },
+  en: { order: "Order", pick: "Choose", orderTitle: "Place an order", orderItem: "Chosen item", qty: "Quantity", orderSend: "Send my order", orderOk: "Thank you! Your order has been sent. We will contact you very soon.", pending: "Payment received and being verified. Your website will be delivered very soon.", why: "Why choose us", reviews: "Read our Google reviews", seeMenu: "See our services" },
+  es: { order: "Pedir", pick: "Elegir", orderTitle: "Hacer un pedido", orderItem: "Producto elegido", qty: "Cantidad", orderSend: "Enviar mi pedido", orderOk: "¡Gracias! Su pedido ha sido enviado. Le contactaremos muy pronto.", pending: "Pago recibido, en verificación. Su sitio se entregará muy pronto.", why: "Por qué elegirnos", reviews: "Ver opiniones en Google", seeMenu: "Ver nuestros servicios" },
+  pt: { order: "Encomendar", pick: "Escolher", orderTitle: "Fazer uma encomenda", orderItem: "Produto escolhido", qty: "Quantidade", orderSend: "Enviar a minha encomenda", orderOk: "Obrigado! A sua encomenda foi enviada. Entraremos em contacto muito em breve.", pending: "Pagamento recebido, em verificação. O seu site será entregue muito em breve.", why: "Porque nos escolher", reviews: "Ver avaliações no Google", seeMenu: "Ver os nossos serviços" },
+};
+for (const k of Object.keys(EXTRA)) Object.assign(UI[k], EXTRA[k]);
+
+export const TP: Record<string, any> = {
+  fr: {
+    title: "Payer et mettre mon site en ligne", back: "← Retour à l'aperçu",
+    intro: "Paiement unique pour la mise en place de votre site. Dès que le paiement est confirmé, votre site est livré par e-mail, automatiquement.",
+    amount: "Montant", online: "Payer en ligne (carte bancaire ou Mobile Money)", onlineHelp: "Paiement sécurisé. Votre e-mail sert à vous envoyer votre site.",
+    email: "Votre e-mail (pour recevoir votre site)", go: "Payer maintenant", paid: "Merci ! Paiement vérifié : votre site est en ligne. Vous recevez un e-mail avec votre lien de modification.", notPaid: "Le paiement n'est pas encore confirmé. Si vous avez payé, patientez une minute et rechargez la page.",
+    manualTitle: "Autre moyen de paiement", momo: "Mobile Money (Bénin et Afrique de l'Ouest)", momoText: "Envoyez le montant au numéro ci-dessous, puis cliquez sur « J'ai payé ».",
+    tap: "Depuis l'étranger : Taptap Send", tapText: "Choisissez le pays Bénin, saisissez le nom et le numéro ci-dessous, puis revenez ici cliquer sur « J'ai payé ».", tapOpen: "Ouvrir Taptap Send",
+    name: "Nom", phone: "Numéro", country: "Pays", declare: "J'ai payé", payerName: "Votre nom", payerRef: "Référence ou 4 derniers chiffres de la transaction", send: "Envoyer", sent: "Merci ! Nous vérifions votre paiement et nous livrons votre site très vite.",
+  },
+  en: {
+    title: "Pay and put my website online", back: "← Back to the preview",
+    intro: "One-time payment for setting up your website. As soon as the payment is confirmed, your website is delivered by e-mail, automatically.",
+    amount: "Amount", online: "Pay online (card or Mobile Money)", onlineHelp: "Secure payment. Your e-mail is used to send you your website.",
+    email: "Your e-mail (to receive your website)", go: "Pay now", paid: "Thank you! Payment verified: your website is live. You will receive an e-mail with your editing link.", notPaid: "The payment is not confirmed yet. If you paid, wait a minute and reload the page.",
+    manualTitle: "Other payment method", momo: "Mobile Money (Benin and West Africa)", momoText: "Send the amount to the number below, then click “I have paid”.",
+    tap: "From abroad: Taptap Send", tapText: "Choose Benin, enter the name and number below, then come back here and click “I have paid”.", tapOpen: "Open Taptap Send",
+    name: "Name", phone: "Number", country: "Country", declare: "I have paid", payerName: "Your name", payerRef: "Reference or last 4 digits of the transaction", send: "Send", sent: "Thank you! We are verifying your payment and will deliver your website very soon.",
+  },
+};
