@@ -1,12 +1,14 @@
 [
-  { "city": "Paris", "tag": "shop=hairdresser", "country": "FR", "count": 10 },
-  { "city": "Lyon", "tag": "amenity=restaurant", "country": "FR", "count": 10 },
-  { "city": "Marseille", "tag": "shop=car_repair", "country": "FR", "count": 10 },
-  { "city": "Bordeaux", "tag": "amenity=dentist", "country": "FR", "count": 10 },
-  { "city": "Bruxelles", "tag": "amenity=restaurant", "country": "BE", "count": 10 },
-  { "city": "Madrid", "tag": "shop=hairdresser", "country": "ES", "count": 10 },
-  { "city": "Lisboa", "tag": "amenity=restaurant", "country": "PT", "count": 10 },
-  { "city": "London", "tag": "shop=car_repair", "country": "GB", "count": 10 },
-  { "city": "Abidjan", "tag": "amenity=restaurant", "country": "CI", "count": 10 },
-  { "city": "Dakar", "tag": "shop=hairdresser", "country": "SN", "count": 10 }
+  { "city": "Cotonou", "tag": "amenity=restaurant", "country": "BJ", "count": 5 },
+  { "city": "Cotonou", "tag": "shop=hairdresser", "country": "BJ", "count": 5 },
+  { "city": "Porto-Novo", "tag": "amenity=restaurant", "country": "BJ", "count": 5 },
+  { "city": "Abomey-Calavi", "tag": "shop=hairdresser", "country": "BJ", "count": 5 },
+  { "city": "Lomé", "tag": "amenity=restaurant", "country": "TG", "count": 5 },
+  { "city": "Abidjan", "tag": "amenity=restaurant", "country": "CI", "count": 5 },
+  { "city": "Dakar", "tag": "amenity=restaurant", "country": "SN", "count": 5 },
+  { "city": "Paris", "tag": "shop=hairdresser", "country": "FR", "count": 5 },
+  { "city": "Lyon", "tag": "amenity=restaurant", "country": "FR", "count": 5 },
+  { "city": "Marseille", "tag": "shop=car_repair", "country": "FR", "count": 5 },
+  { "city": "Bruxelles", "tag": "amenity=restaurant", "country": "BE", "count": 5 },
+  { "city": "Madrid", "tag": "shop=hairdresser", "country": "ES", "count": 5 }
 ]

@@ -3,10 +3,12 @@
 // Options (variables) : ONLY_EMAIL=1 (ne garder que les commerces avec e-mail), UNSPLASH_ACCESS_KEY ou PEXELS_API_KEY (photos gratuites)
 import { createClient } from "@supabase/supabase-js";
 import { appendFileSync } from "node:fs";
+import nodemailer from "nodemailer";
 const [city, tag, n = "5", countryArg] = process.argv.slice(2);
 if (!city || !tag) { console.log("Exemple : node --env-file=.env.local scripts/generate.mjs Cotonou amenity=restaurant 3 BJ"); process.exit(1); }
 const country = (countryArg || "FR").toUpperCase();
 const ONLY_EMAIL = process.env.ONLY_EMAIL === "1";
+const ONLY_CONTACT = process.env.ONLY_CONTACT === "1"; // e-mail OU téléphone
 const AUTO = process.env.AUTO === "1";
 const COUNTRIES = {
   BJ: ["fr", "XOF"], TG: ["fr", "XOF"], CI: ["fr", "XOF"], SN: ["fr", "XOF"], ML: ["fr", "XOF"], BF: ["fr", "XOF"], NE: ["fr", "XOF"],
@@ -35,6 +37,8 @@ const sleep = (ms) => new Promise((ok) => setTimeout(ok, ms));
 const base = `nwr(area.a)["${key}"="${val}"][name][!website][!"contact:website"]`;
 const query = ONLY_EMAIL
   ? `[out:json][timeout:90];area[name="${city}"]->.a;(${base}[email];${base}["contact:email"];);out center tags 400;`
+  : ONLY_CONTACT
+  ? `[out:json][timeout:90];area[name="${city}"]->.a;(${base}[email];${base}["contact:email"];${base}[phone];${base}["contact:phone"];${base}["contact:mobile"];);out center tags 400;`
   : `[out:json][timeout:60];area[name="${city}"]->.a;${base};out center tags 300;`;
 async function overpass() {
   const mirrors = ["https://overpass-api.de/api/interpreter", "https://overpass.kumi.systems/api/interpreter", "https://overpass.private.coffee/api/interpreter"];
@@ -53,8 +57,9 @@ async function overpass() {
 }
 const MODEL = (process.env.GEMINI_MODEL || "").replace(/^GEMINI_MODEL=/, "").trim() || "gemini-flash-latest";
 async function gemini(prompt) {
+  const models = [...new Set([MODEL, "gemini-flash-lite-latest", "gemini-flash-latest"])];
   for (let attempt = 0; attempt < 3; attempt++) {
-    for (const m of [...new Set([MODEL, "gemini-flash-latest"])]) {
+    for (const m of models) {
       try {
         const g = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${m}:generateContent`, {
           method: "POST", headers: { "Content-Type": "application/json", "x-goog-api-key": process.env.GEMINI_API_KEY },
@@ -63,10 +68,11 @@ async function gemini(prompt) {
         const j = await g.json().catch(() => ({}));
         const t = j?.candidates?.[0]?.content?.parts?.[0]?.text;
         if (t) { try { return JSON.parse(t.replace(/```json|```/g, "").trim()); } catch {} }
-        console.log("Gemini (" + m + ") :", g.status, String(j?.error?.message || "réponse vide").slice(0, 160));
+        console.log("Gemini (" + m + ") :", g.status, String(j?.error?.message || "réponse vide").slice(0, 90));
       } catch (e) { console.log("Gemini échec réseau :", e.message); }
+      await sleep(4000);
     }
-    await sleep(8000);
+    await sleep(15000 * (attempt + 1));
   }
   return null;
 }
@@ -108,6 +114,7 @@ const score = (e) => ((e.tags.email || e.tags["contact:email"]) ? 2 : 0) + ((e.t
 const todo = all.filter((e) => !known.has(`${e.type}/${e.id}`)).sort((a, b) => score(b) - score(a));
 console.log(all.length + " commerces sans site trouvés, " + todo.length + " nouveaux (pays " + country + ", langue " + lang + ", thème " + theme + ", modèle " + MODEL + ")");
 let created = 0;
+const waList = [];
 for (const e of todo) {
   if (created >= Number(n)) break;
   const t = e.tags;
@@ -124,8 +131,10 @@ for (const e of todo) {
   const h = await photo(content.heroQuery);
   if (h) { heroUrl = h.hero; credit = h.credit; }
   const services = [];
+  const maxPics = process.env.UNSPLASH_ACCESS_KEY ? 3 : 6; // Unsplash (mode test) : 50 requêtes par heure
+  let idx = 0;
   for (const sv of (content.services || []).slice(0, 6)) {
-    const p = await photo(sv.photoQuery);
+    const p = idx++ < maxPics ? await photo(sv.photoQuery) : null;
     if (p) credit = p.credit;
     services.push({ name: sv.name, desc: sv.desc || "", price: "", img: p ? p.card : "" });
   }
@@ -140,9 +149,17 @@ for (const e of todo) {
   if (digits.startsWith("+") || digits.startsWith("00")) {
     wa = `https://wa.me/${digits.replace(/^\+/, "").replace(/^00/, "")}?text=${encodeURIComponent(MSG[lang](name, link))}`;
   }
+  if (AUTO && wa && !email) waList.push(`${name}\nAperçu : ${link}\nWhatsApp : ${wa}\n`);
   try { appendFileSync("leads.csv", `${name};${email || ""};${link};${process.env.SITE_URL}/edit/${data.edit_token};${wa}\n`); } catch {}
   console.log("✔", name, "| e-mail:", email || "aucun", "| WhatsApp:", wa ? "oui" : "non", "| photos:", heroUrl ? "oui" : "non");
   console.log("   Aperçu :", link);
   await sleep(4000);
 }
 console.log(created + " site(s) créé(s).");
+if (AUTO && waList.length && process.env.GMAIL_USER && process.env.GMAIL_APP_PASSWORD) {
+  try {
+    const tr = nodemailer.createTransport({ service: "gmail", auth: { user: process.env.GMAIL_USER, pass: process.env.GMAIL_APP_PASSWORD } });
+    await tr.sendMail({ from: `SiteExpress <${process.env.GMAIL_USER}>`, to: process.env.GMAIL_USER, subject: `WhatsApp du jour : ${waList.length} commerce(s) à contacter`, text: `Clique sur chaque lien WhatsApp : le message est déjà écrit, il te reste à l'envoyer.\n\n${waList.join("\n")}` });
+    console.log("Liste WhatsApp envoyée par e-mail.");
+  } catch (e) { console.log("Liste WhatsApp non envoyée :", e.message); }
+}
