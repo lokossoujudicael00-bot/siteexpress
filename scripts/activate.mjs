@@ -1,3 +1,4 @@
+process.env.SITE_URL = (process.env.SITE_URL || "").replace(/^SITE_URL=/, "").trim().replace(/\/+$/, "");
 // Usage : node --env-file=.env.local scripts/activate.mjs slug-du-commerce
 // A lancer APRES avoir reçu le paiement.
 import { createClient } from "@supabase/supabase-js";

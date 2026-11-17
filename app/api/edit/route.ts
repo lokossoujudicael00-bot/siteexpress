@@ -30,9 +30,16 @@ export async function POST(req: Request) {
     services.push({ name, desc: String(f.get(`desc_${i}`) || ""), price: String(f.get(`price_${i}`) || ""), img });
   }
   c.services = services;
-  if (f.get("hero_del")) c.hero = "";
-  const hero = await upload(s.slug, f.get("hero_file"), "hero");
-  if (hero) c.hero = hero;
+  const heroes: string[] = [];
+  for (let i = 0; i < 4; i++) {
+    let u = String(f.get(`hero_url_${i}`) || "");
+    if (f.get(`hero_del_${i}`)) u = "";
+    const up = await upload(s.slug, f.get(`hero_file_${i}`), `hero${i}`);
+    if (up) u = up;
+    if (u) heroes.push(u);
+  }
+  c.heroes = heroes;
+  c.hero = heroes[0] || "";
   const g = await upload(s.slug, f.get("gallery_file"), "gal");
   if (g) c.photos = [...(c.photos || []), g];
   await db.from("shops").update({ config: c }).eq("id", s.id);

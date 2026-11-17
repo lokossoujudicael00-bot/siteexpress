@@ -20,3 +20,4 @@ jobs:
           GMAIL_USER: ${{ secrets.GMAIL_USER }}
           GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
           SITE_URL: ${{ secrets.SITE_URL }}
+          SEND_ENABLED: ${{ vars.SEND_ENABLED }}

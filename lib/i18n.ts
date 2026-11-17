@@ -165,3 +165,11 @@ export const TP: Record<string, any> = {
     name: "Name", phone: "Number", country: "Country", declare: "I have paid", payerName: "Your name", payerRef: "Reference or last 4 digits of the transaction", send: "Send", sent: "Thank you! We are verifying your payment and will deliver your website very soon.",
   },
 };
+
+const EXTRA2: Record<string, any> = {
+  fr: { welcomeNew: "Bienvenue ! Voici votre site. Nous venons de vous envoyer un e-mail avec le lien pour le modifier et le mettre en ligne." },
+  en: { welcomeNew: "Welcome! Here is your website. We just sent you an e-mail with the link to edit it and put it online." },
+  es: { welcomeNew: "¡Bienvenido! Este es su sitio. Le hemos enviado un correo con el enlace para modificarlo y publicarlo." },
+  pt: { welcomeNew: "Bem-vindo! Este é o seu site. Enviámos-lhe um e-mail com a ligação para o editar e publicar." },
+};
+for (const k of Object.keys(EXTRA2)) Object.assign(UI[k], EXTRA2[k]);

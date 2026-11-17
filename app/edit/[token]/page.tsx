@@ -11,6 +11,7 @@ export default async function Edit({ params, searchParams }: { params: Promise<{
   if (!s) notFound();
   const c: any = s.config || {};
   const services: any[] = c.services || [];
+  const heroes: string[] = ((c.heroes && c.heroes.length ? c.heroes : c.hero ? [c.hero] : []) as string[]).filter(Boolean);
   const rows = Math.max(services.length + 3, 6);
   const { data: b } = await db.from("bookings").select("*").eq("shop_id", s.id).order("created_at", { ascending: false }).limit(30);
   const lab: any = { display: "grid", gap: 6, fontWeight: 600, fontSize: 14 };
@@ -28,7 +29,19 @@ export default async function Edit({ params, searchParams }: { params: Promise<{
           <label style={lab}>Horaires<input name="hours" defaultValue={c.hours || ""} style={{ padding: 12, fontSize: 16 }} /></label>
           <label style={lab}>Adresse<input name="address" defaultValue={c.address || ""} style={{ padding: 12, fontSize: 16 }} /></label>
           <label style={lab}>Téléphone (avec l'indicatif, ex. +229...)<input name="phone" defaultValue={c.phone || ""} style={{ padding: 12, fontSize: 16 }} /></label>
-          <div style={lab}>Grande photo du haut de la page{c.hero ? <img src={c.hero} alt="" style={{ width: 220, borderRadius: 10 }} /> : null}<ResizeInput name="hero_file" />{c.hero ? <label style={{ fontWeight: 400 }}><input type="checkbox" name="hero_del" /> Retirer cette photo</label> : null}</div>
+          <h2 style={{ fontSize: 22, marginTop: 10 }}>Photos du haut de la page (elles défilent)</h2>
+          <p style={{ color: "#5d6577", margin: 0 }}>Jusqu'à 4 grandes photos de votre commerce. Elles remplacent les photos d'exemple.</p>
+          {[0, 1, 2, 3].map((i) => {
+            const u: string = heroes[i] || "";
+            return (
+              <div key={i} className="sx-card" style={{ display: "grid", gap: 8 }}>
+                <input type="hidden" name={`hero_url_${i}`} value={u} />
+                {u ? <img src={u} alt="" style={{ width: 220, borderRadius: 10 }} /> : <span style={{ color: "#5d6577" }}>Emplacement {i + 1} vide</span>}
+                <ResizeInput name={`hero_file_${i}`} />
+                {u ? <label style={{ fontWeight: 400 }}><input type="checkbox" name={`hero_del_${i}`} /> Retirer cette photo</label> : null}
+              </div>
+            );
+          })}
 
           <h2 style={{ fontSize: 22, marginTop: 10 }}>Mes plats, produits ou services</h2>
           <p style={{ color: "#5d6577", margin: 0 }}>Pour chacun : nom, description, prix et photo. Les lignes vides sont ignorées.</p>

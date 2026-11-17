@@ -1,7 +1,10 @@
 // Usage : node --env-file=.env.local scripts/send.mjs 10
 import { createClient } from "@supabase/supabase-js";
 import nodemailer from "nodemailer";
+process.env.SITE_URL = (process.env.SITE_URL || "").replace(/^SITE_URL=/, "").trim().replace(/\/+$/, "");
 const n = Number(process.argv[2] || 10);
+const LIVE = process.env.SEND_ENABLED === "1";
+if (!LIVE) console.log("MODE TEST : rien n'est envoyé. Pour envoyer pour de vrai : SEND_ENABLED=1");
 if (!process.env.SITE_URL || process.env.SITE_URL.includes("localhost")) { console.log("SITE_URL doit etre ton adresse Vercel (pas localhost). Arret."); process.exit(1); }
 const db = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
 const t = nodemailer.createTransport({ service: "gmail", auth: { user: process.env.GMAIL_USER, pass: process.env.GMAIL_APP_PASSWORD } });
@@ -17,6 +20,7 @@ let sent = 0;
 for (const s of shops || []) {
   const lang = TXT[s.config?.lang] ? s.config.lang : "fr";
   const link = `${process.env.SITE_URL}/${s.slug}`;
+  if (!LIVE) { console.log("[TEST] j'aurais écrit à", s.name, s.owner_email, link); continue; }
   try {
     await t.sendMail({ from: `Rufin – SiteExpress <${process.env.GMAIL_USER}>`, to: s.owner_email, subject: TXT[lang].sub(s.name), text: TXT[lang].body(s.name, link) });
     await db.from("shops").update({ contacted_at: new Date().toISOString() }).eq("id", s.id);
@@ -26,6 +30,6 @@ for (const s of shops || []) {
   await new Promise((r) => setTimeout(r, 45000 + Math.random() * 45000));
 }
 
-try {
+if (LIVE) try {
   await t.sendMail({ from: `SiteExpress <${process.env.GMAIL_USER}>`, to: process.env.GMAIL_USER, subject: `Rapport du jour : ${sent} e-mail(s) envoyé(s)`, text: `${sent} aperçu(s) envoyé(s) aujourd'hui sur ${(shops || []).length} prévus.\nTu seras prévenu par e-mail dès qu'un client paie : le site lui est alors livré automatiquement.` });
 } catch (e) { console.log("rapport", e.message); }

@@ -12,7 +12,7 @@ function intl(p: string): string {
   return "";
 }
 
-export default async function Shop({ params, searchParams }: { params: Promise<{ slug: string }>; searchParams: Promise<{ ok?: string; item?: string }> }) {
+export default async function Shop({ params, searchParams }: { params: Promise<{ slug: string }>; searchParams: Promise<{ ok?: string; item?: string; new?: string }> }) {
   const { slug } = await params;
   const sp = await searchParams;
   const { data: s } = await db.from("shops").select("*").eq("slug", slug).single();
@@ -32,10 +32,12 @@ export default async function Shop({ params, searchParams }: { params: Promise<{
   const faq: any[] = c.faq || [];
   const why: any[] = c.highlights || [];
   const photos: string[] = c.photos || [];
-  const hero: string = c.hero || "";
+  const heroes: string[] = ((c.heroes && c.heroes.length ? c.heroes : c.hero ? [c.hero] : []) as string[]).filter(Boolean);
+  const slides: string[] = heroes.length ? [0, 1, 2, 3].map((i) => heroes[i % heroes.length]) : [];
   const itemTarget = theme.orders ? "commander" : "reserver";
   return (
     <div className="sx" data-v={st.variant} data-f={st.font} data-r={st.radius} style={{ ["--h" as any]: st.hue }}>
+      {sp.new ? <div className="sx-ok" style={{ maxWidth: "none", borderRadius: 0, margin: 0, textAlign: "center" }}>{t.welcomeNew}</div> : null}
       <nav className="sx-nav">
         <div className="sx-wrap">
           <span className="sx-brand">{s.name}</span>
@@ -48,10 +50,10 @@ export default async function Shop({ params, searchParams }: { params: Promise<{
         </div>
       </nav>
 
-      <header className={"sx-hero" + (hero ? " photo" : "")} style={hero ? { backgroundImage: `url(${hero})` } : undefined}>
-        <span className="sx-blob b1" /><span className="sx-blob b2" /><span className="sx-blob b3" />
-        <span className="sx-emoji">{st.emoji}</span>
-        <div className="sx-wrap" style={{ position: "relative", zIndex: 1 }}>
+      <header className={"sx-hero" + (slides.length ? " photo" : "")}>
+        {slides.map((u: string, i: number) => (<div key={i} className="sx-slide" style={{ backgroundImage: `url(${u})`, animationDelay: `${i * 6}s` }} />))}
+        {slides.length ? <div className="sx-shade" /> : (<><span className="sx-blob b1" /><span className="sx-blob b2" /><span className="sx-blob b3" /></>)}
+        <div className="sx-wrap" style={{ position: "relative", zIndex: 2 }}>
           <h1 className="sx-up">{s.name}</h1>
           <p className="sx-up d1">{c.tagline}</p>
           <div className="cta sx-up d2">
@@ -89,7 +91,7 @@ export default async function Shop({ params, searchParams }: { params: Promise<{
             <div className="sx-grid">
               {services.map((x: any, i: number) => (
                 <div className="sx-card sx-reveal" key={i}>
-                  {x.img ? <img className="pic" src={x.img} alt={x.name} loading="lazy" /> : <div className="ic">{theme.emojis[i % theme.emojis.length]}</div>}
+                  {x.img ? <img className="pic" src={x.img} alt={x.name} loading="lazy" /> : <div className="sx-noimg" />}
                   <h3>{x.name}</h3>
                   {x.desc ? <p>{x.desc}</p> : null}
                   <div className="row">

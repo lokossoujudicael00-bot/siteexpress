@@ -1,3 +1,4 @@
+process.env.SITE_URL = (process.env.SITE_URL || "").replace(/^SITE_URL=/, "").trim().replace(/\/+$/, "");
 // Lancé chaque nuit par GitHub Actions : choisit la cible du jour dans targets.json et crée les sites.
 import { readFileSync } from "node:fs";
 import { spawnSync } from "node:child_process";

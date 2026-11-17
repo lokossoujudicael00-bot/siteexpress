@@ -4,6 +4,7 @@
 import { createClient } from "@supabase/supabase-js";
 import { appendFileSync } from "node:fs";
 import nodemailer from "nodemailer";
+process.env.SITE_URL = (process.env.SITE_URL || "").replace(/^SITE_URL=/, "").trim().replace(/\/+$/, "");
 const [city, tag, n = "5", countryArg] = process.argv.slice(2);
 if (!city || !tag) { console.log("Exemple : node --env-file=.env.local scripts/generate.mjs Cotonou amenity=restaurant 3 BJ"); process.exit(1); }
 const country = (countryArg || "FR").toUpperCase();
@@ -76,30 +77,26 @@ async function gemini(prompt) {
   }
   return null;
 }
-async function photo(q) {
-  if (!q) return null;
+const THEME_Q = { food: "african restaurant food", beauty: "hair salon", auto: "car garage mechanic", health: "clinic doctor", hotel: "hotel room", fitness: "gym fitness", school: "classroom school", shop: "small shop store", generic: "small business" };
+const shuffle = (a) => [...a].sort(() => Math.random() - 0.5);
+const UKEY = process.env.UNSPLASH_ACCESS_KEY;
+async function photos(q, per = 10) {
+  if (!q) return [];
   try {
-    if (process.env.UNSPLASH_ACCESS_KEY) {
-      const auth = { Authorization: `Client-ID ${process.env.UNSPLASH_ACCESS_KEY}` };
-      const r = await fetch(`https://api.unsplash.com/search/photos?query=${encodeURIComponent(q)}&per_page=5&orientation=landscape`, { headers: auth });
+    if (UKEY) {
+      const r = await fetch(`https://api.unsplash.com/search/photos?query=${encodeURIComponent(q)}&per_page=${per}&orientation=landscape`, { headers: { Authorization: `Client-ID ${UKEY}` } });
       const j = await r.json();
-      const list = j.results || [];
-      if (!list.length) return null;
-      const p = list[Math.floor(Math.random() * list.length)];
-      try { if (p.links && p.links.download_location) fetch(p.links.download_location, { headers: auth }).catch(() => {}); } catch {}
-      return { hero: p.urls.regular, card: p.urls.small, credit: "Unsplash" };
+      return (j.results || []).map((p) => ({ hero: p.urls.regular, card: p.urls.small, dl: p.links && p.links.download_location, credit: "Unsplash" }));
     }
     if (process.env.PEXELS_API_KEY) {
-      const r = await fetch(`https://api.pexels.com/v1/search?query=${encodeURIComponent(q)}&per_page=5&orientation=landscape`, { headers: { Authorization: process.env.PEXELS_API_KEY } });
+      const r = await fetch(`https://api.pexels.com/v1/search?query=${encodeURIComponent(q)}&per_page=${per}&orientation=landscape`, { headers: { Authorization: process.env.PEXELS_API_KEY } });
       const j = await r.json();
-      const list = j.photos || [];
-      if (!list.length) return null;
-      const p = list[Math.floor(Math.random() * list.length)];
-      return { hero: p.src.large2x || p.src.large, card: p.src.medium || p.src.large, credit: "Pexels" };
+      return (j.photos || []).map((p) => ({ hero: p.src.large2x || p.src.large, card: p.src.medium || p.src.large, credit: "Pexels" }));
     }
   } catch {}
-  return null;
+  return [];
 }
+const ping = (p) => { if (p && p.dl && UKEY) fetch(p.dl, { headers: { Authorization: `Client-ID ${UKEY}` } }).catch(() => {}); };
 const MSG = {
   fr: (name, link) => `Bonjour, j'ai préparé gratuitement un aperçu de site web pour ${name} : ${link}\nLe tarif et les détails sont sur la page. Répondez STOP si vous ne voulez pas être contacté.`,
   en: (name, link) => `Hello, I prepared a free website preview for ${name}: ${link}\nPrice and details are on the page. Reply STOP if you do not want to be contacted.`,
@@ -126,19 +123,23 @@ for (const e of todo) {
   const gen = await gemini(prompt);
   if (!gen && AUTO) { console.log("→ Gemini indisponible, je saute", name); continue; }
   const content = gen || { tagline: name, about: "", servicesTitle: "", services: [], highlights: [], faq: [] };
-  let credit = "";
-  let heroUrl = "";
-  const h = await photo(content.heroQuery);
-  if (h) { heroUrl = h.hero; credit = h.credit; }
+  const heroQ = content.heroQuery || THEME_Q[theme];
+  const heroList = shuffle(await photos(heroQ, 12)).slice(0, 4);
+  heroList.forEach(ping);
+  let credit = heroList[0] ? heroList[0].credit : "";
+  const heroes = heroList.map((p) => p.hero);
+  const maxPics = UKEY ? 3 : 6; // Unsplash (mode test) : 50 requêtes par heure
   const services = [];
-  const maxPics = process.env.UNSPLASH_ACCESS_KEY ? 3 : 6; // Unsplash (mode test) : 50 requêtes par heure
   let idx = 0;
   for (const sv of (content.services || []).slice(0, 6)) {
-    const p = idx++ < maxPics ? await photo(sv.photoQuery) : null;
-    if (p) credit = p.credit;
-    services.push({ name: sv.name, desc: sv.desc || "", price: "", img: p ? p.card : "" });
+    let img = "";
+    if (idx++ < maxPics) {
+      const l = shuffle(await photos(sv.photoQuery || heroQ, 6));
+      if (l[0]) { img = l[0].card; credit = credit || l[0].credit; ping(l[0]); }
+    }
+    services.push({ name: sv.name, desc: sv.desc || "", price: "", img });
   }
-  const config = { tagline: content.tagline, about: content.about, servicesTitle: content.servicesTitle, services, highlights: content.highlights || [], faq: content.faq || [], hero: heroUrl, photoCredit: credit || false, theme, lang, currency, country, address, phone, hours: t.opening_hours || "", photos: [], osm_id: `${e.type}/${e.id}` };
+  const config = { tagline: content.tagline, about: content.about, servicesTitle: content.servicesTitle, services, highlights: content.highlights || [], faq: content.faq || [], heroes, hero: heroes[0] || "", photoCredit: credit || false, theme, lang, currency, country, address, phone, hours: t.opening_hours || "", photos: [], osm_id: `${e.type}/${e.id}` };
   const slug = name.toLowerCase().normalize("NFD").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") + "-" + Math.random().toString(36).slice(2, 5);
   const { data, error } = await db.from("shops").insert({ slug, name, type: tag, config, owner_email: email }).select().single();
   if (error) { console.log("Erreur", name, error.message); continue; }
@@ -151,7 +152,7 @@ for (const e of todo) {
   }
   if (AUTO && wa && !email) waList.push(`${name}\nAperçu : ${link}\nWhatsApp : ${wa}\n`);
   try { appendFileSync("leads.csv", `${name};${email || ""};${link};${process.env.SITE_URL}/edit/${data.edit_token};${wa}\n`); } catch {}
-  console.log("✔", name, "| e-mail:", email || "aucun", "| WhatsApp:", wa ? "oui" : "non", "| photos:", heroUrl ? "oui" : "non");
+  console.log("✔", name, "| e-mail:", email || "aucun", "| WhatsApp:", wa ? "oui" : "non", "| photos:", heroes.length ? heroes.length : "non");
   console.log("   Aperçu :", link);
   await sleep(4000);
 }
